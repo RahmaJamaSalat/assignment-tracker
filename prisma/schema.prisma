@@ -1,0 +1,57 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            Int            @id @default(autoincrement())
+  email         String         @unique
+  name          String?
+  clerkId       String         @unique
+  assignments   Assignment[]
+  notifications Notification[]
+}
+
+model Assignment {
+  id            String         @id @default(cuid())
+  title         String
+  description   String         @default("")
+  subject       String         @default("")
+  dueDate       DateTime
+  status        String         @default("not-started")
+  priority      String         @default("medium")
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  userId        Int
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notifications Notification[]
+
+  @@index([userId])
+  @@index([dueDate])
+}
+
+model Notification {
+  id           String      @id @default(cuid())
+  message      String
+  type         String      @default("deadline") // deadline, status_change, reminder, etc.
+  read         Boolean     @default(false)
+  createdAt    DateTime    @default(now())
+  userId       Int
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignmentId String?
+  assignment   Assignment? @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([read])
+  @@index([createdAt])
+}

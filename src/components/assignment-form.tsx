@@ -17,10 +17,11 @@ import { Plus } from "lucide-react"
 import React, { useState } from "react"
 
 interface AssignmentFormProps {
-  onSubmit: (data: AssignmentFormData) => void
+  onSubmit: (data: AssignmentFormData) => Promise<void>
+  isLoading?: boolean
 }
 
-const AssignmentForm = ({ onSubmit }: AssignmentFormProps) => {
+const AssignmentForm = ({ onSubmit, isLoading = false }: AssignmentFormProps) => {
   const [formData, setFormData] = useState<AssignmentFormData>({
     title: "",
     description: "",
@@ -29,10 +30,11 @@ const AssignmentForm = ({ onSubmit }: AssignmentFormProps) => {
     priority: "medium",
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (formData.title && formData.dueDate) {
-      onSubmit(formData)
+      await onSubmit(formData)
+      // Only reset after successful submission
       setFormData({
         title: "",
         description: "",
@@ -121,9 +123,18 @@ const AssignmentForm = ({ onSubmit }: AssignmentFormProps) => {
             </div>
           </div>
 
-          <Button type="submit" className="w-full">
-            <Plus className="w-4 h-4 mr-2" />
-            Add Assignment
+          <Button type="submit" className="w-full" disabled={isLoading}>
+            {isLoading ? (
+              <>
+                <div className="w-4 h-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Adding...
+              </>
+            ) : (
+              <>
+                <Plus className="w-4 h-4 mr-2" />
+                Add Assignment
+              </>
+            )}
           </Button>
         </form>
       </CardContent>

@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
 import type { Assignment, AssignmentFormData } from "@/types/assignment"
+import type { Notification } from "@/types/notification"
 import { Bell, Filter, GraduationCap, Plus, Search } from "lucide-react"
 import { useEffect, useState } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
@@ -39,113 +40,303 @@ const Dashboard = () => {
   const [filterStatus, setFilterStatus] = useState<string>("all")
   const [sortBy, setSortBy] = useState<string>("dueDate")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
-  const [notifications, setNotifications] = useState<
-    Array<{
-      id: string
-      message: string
-      time: string
-      read: boolean
-    }>
-  >([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [notifications, setNotifications] = useState<Notification[]>([])
   const { toast } = useToast()
 
-  // Load assignments from localStorage on component mount
+  // Fetch assignments from API on component mount
   useEffect(() => {
-    const savedAssignments = localStorage.getItem("assignments")
-    if (savedAssignments) {
-      const parsed = JSON.parse(savedAssignments)
-      setAssignments(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        parsed.map((a: any) => ({
-          ...a,
-          dueDate: new Date(a.dueDate),
-          createdAt: new Date(a.createdAt),
-        }))
-      )
+    const fetchAssignments = async () => {
+      try {
+        setIsLoading(true)
+        const response = await fetch("/api/assignments")
+        if (response.ok) {
+          const data: Array<{
+            id: string;
+            title: string;
+            description: string;
+            subject: string;
+            dueDate: string;
+            status: "not-started" | "in-progress" | "completed";
+            priority: "low" | "medium" | "high";
+            createdAt: string;
+            userId: number;
+          }> = await response.json()
+          setAssignments(
+            data.map((a) => ({
+              ...a,
+              dueDate: new Date(a.dueDate),
+              createdAt: new Date(a.createdAt),
+            }))
+          )
+        } else {
+          toast({
+            title: "Error",
+            description: "Failed to fetch assignments",
+            variant: "destructive",
+          })
+        }
+      } catch (error) {
+        console.error("Error fetching assignments:", error)
+        toast({
+          title: "Error",
+          description: "Failed to fetch assignments",
+          variant: "destructive",
+        })
+      } finally {
+        setIsLoading(false)
+      }
     }
+
+    fetchAssignments()
+  }, [toast])
+
+  // Fetch notifications from API
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const response = await fetch("/api/notifications")
+        if (response.ok) {
+          const data: Array<{
+            id: string;
+            message: string;
+            type: string;
+            read: boolean;
+            createdAt: string;
+            userId: number;
+            assignmentId: string | null;
+            assignment: {
+              id: string;
+              title: string;
+              dueDate: string;
+            } | null;
+          }> = await response.json()
+          setNotifications(
+            data.map((n) => ({
+              ...n,
+              createdAt: new Date(n.createdAt),
+              assignment: n.assignment
+                ? {
+                    ...n.assignment,
+                    dueDate: new Date(n.assignment.dueDate),
+                  }
+                : null,
+            }))
+          )
+        }
+      } catch (error) {
+        console.error("Error fetching notifications:", error)
+      }
+    }
+
+    fetchNotifications()
   }, [])
 
-  // Save assignments to localStorage whenever assignments change
+  // Generate notifications for upcoming assignments
   useEffect(() => {
-    localStorage.setItem("assignments", JSON.stringify(assignments))
+    const generateNotifications = async () => {
+      try {
+        await fetch("/api/notifications", {
+          method: "POST",
+        })
+        // Fetch updated notifications
+        const response = await fetch("/api/notifications")
+        if (response.ok) {
+          const data: Array<{
+            id: string;
+            message: string;
+            type: string;
+            read: boolean;
+            createdAt: string;
+            userId: number;
+            assignmentId: string | null;
+            assignment: {
+              id: string;
+              title: string;
+              dueDate: string;
+            } | null;
+          }> = await response.json()
+          setNotifications(
+            data.map((n) => ({
+              ...n,
+              createdAt: new Date(n.createdAt),
+              assignment: n.assignment
+                ? {
+                    ...n.assignment,
+                    dueDate: new Date(n.assignment.dueDate),
+                  }
+                : null,
+            }))
+          )
+        }
+      } catch (error) {
+        console.error("Error generating notifications:", error)
+      }
+    }
+
+    if (assignments.length > 0) {
+      generateNotifications()
+    }
   }, [assignments])
 
-  // Generate notifications for assignments due soon
-  useEffect(() => {
-    const generateNotifications = () => {
-      const now = new Date()
-      const upcomingAssignments = assignments.filter((assignment) => {
-        const dueDate = new Date(assignment.dueDate)
-        const timeDiff = dueDate.getTime() - now.getTime()
-        const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24))
-        return (
-          daysDiff <= 3 && daysDiff >= 0 && assignment.status !== "completed"
+  // Helper function to refetch notifications
+  const refetchNotifications = async () => {
+    try {
+      const response = await fetch("/api/notifications")
+      if (response.ok) {
+        const data: Array<{
+          id: string;
+          message: string;
+          type: string;
+          read: boolean;
+          createdAt: string;
+          userId: number;
+          assignmentId: string | null;
+          assignment: {
+            id: string;
+            title: string;
+            dueDate: string;
+          } | null;
+        }> = await response.json()
+        setNotifications(
+          data.map((n) => ({
+            ...n,
+            createdAt: new Date(n.createdAt),
+            assignment: n.assignment
+              ? {
+                  ...n.assignment,
+                  dueDate: new Date(n.assignment.dueDate),
+                }
+              : null,
+          }))
         )
-      })
-
-      const newNotifications = upcomingAssignments.map((assignment) => {
-        const dueDate = new Date(assignment.dueDate)
-        const timeDiff = dueDate.getTime() - now.getTime()
-        const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24))
-        let timeMessage = ""
-
-        if (daysDiff === 0) {
-          timeMessage = "Due today!"
-        } else if (daysDiff === 1) {
-          timeMessage = "Due tomorrow"
-        } else {
-          timeMessage = `Due in ${daysDiff} days`
-        }
-
-        return {
-          id: `${assignment.id}-due`,
-          message: `${assignment.title} - ${timeMessage}`,
-          time: new Date().toLocaleTimeString(),
-          read: false,
-        }
-      })
-
-      setNotifications(newNotifications)
+      }
+    } catch (error) {
+      console.error("Error fetching notifications:", error)
     }
-
-    generateNotifications()
-  }, [assignments])
-
-  const addAssignment = (formData: AssignmentFormData) => {
-    const newAssignment: Assignment = {
-      id: Date.now().toString(),
-      title: formData.title,
-      description: formData.description,
-      subject: formData.subject,
-      dueDate: new Date(formData.dueDate),
-      status: "not-started",
-      createdAt: new Date(),
-      priority: formData.priority,
-    }
-
-    setAssignments((prev) => [...prev, newAssignment])
-    setIsAddDialogOpen(false)
-    toast({
-      title: "Assignment Added",
-      description: `"${formData.title}" has been added to your assignments.`,
-    })
   }
 
-  const updateAssignmentStatus = (id: string, status: Assignment["status"]) => {
+  const addAssignment = async (formData: AssignmentFormData) => {
+    setIsSubmitting(true)
+    try {
+      const response = await fetch("/api/assignments", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      })
+
+      if (response.ok) {
+        const newAssignment = await response.json()
+        setAssignments((prev) => [
+          ...prev,
+          {
+            ...newAssignment,
+            dueDate: new Date(newAssignment.dueDate),
+            createdAt: new Date(newAssignment.createdAt),
+          },
+        ])
+        // Refetch notifications after adding assignment
+        await refetchNotifications()
+        setIsAddDialogOpen(false)
+        toast({
+          title: "Assignment Added",
+          description: `"${formData.title}" has been added to your assignments.`,
+        })
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to add assignment",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error adding assignment:", error)
+      toast({
+        title: "Error",
+        description: "Failed to add assignment",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const updateAssignmentStatus = async (
+    id: string,
+    status: Assignment["status"]
+  ) => {
+    const assignment = assignments.find((a) => a.id === id)
+    
+    // Optimistic update - update UI immediately
     setAssignments((prev) =>
-      prev.map((assignment) =>
-        assignment.id === id ? { ...assignment, status } : assignment
+      prev.map((a) =>
+        a.id === id ? { ...a, status } : a
       )
     )
 
-    const assignment = assignments.find((a) => a.id === id)
-    if (assignment) {
+    try {
+      const response = await fetch(`/api/assignments/${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status }),
+      })
+
+      if (response.ok) {
+        const updatedAssignment = await response.json()
+        setAssignments((prev) =>
+          prev.map((a) =>
+            a.id === id
+              ? {
+                  ...updatedAssignment,
+                  dueDate: new Date(updatedAssignment.dueDate),
+                  createdAt: new Date(updatedAssignment.createdAt),
+                }
+              : a
+          )
+        )
+
+        // Refetch notifications after updating assignment
+        await refetchNotifications()
+
+        if (assignment) {
+          toast({
+            title: "Status Updated",
+            description: `"${assignment.title}" marked as ${status.replace(
+              "-",
+              " "
+            )}.`,
+          })
+        }
+      } else {
+        // Revert optimistic update on error
+        setAssignments((prev) =>
+          prev.map((a) =>
+            a.id === id && assignment ? { ...assignment } : a
+          )
+        )
+        toast({
+          title: "Error",
+          description: "Failed to update assignment",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error updating assignment:", error)
+      // Revert optimistic update on error
+      setAssignments((prev) =>
+        prev.map((a) =>
+          a.id === id && assignment ? { ...assignment } : a
+        )
+      )
       toast({
-        title: "Status Updated",
-        description: `"${assignment.title}" marked as ${status.replace(
-          "-",
-          " "
-        )}.`,
+        title: "Error",
+        description: "Failed to update assignment",
+        variant: "destructive",
       })
     }
   }
@@ -205,7 +396,7 @@ const Dashboard = () => {
                 <DialogHeader>
                   <DialogTitle>Add New Assignment</DialogTitle>
                 </DialogHeader>
-                <AssignmentForm onSubmit={addAssignment} />
+                <AssignmentForm onSubmit={addAssignment} isLoading={isSubmitting} />
               </DialogContent>
             </Dialog>
 
@@ -233,12 +424,25 @@ const Dashboard = () => {
                     <DropdownMenuItem
                       key={notification.id}
                       className="flex flex-col items-start p-3 cursor-pointer hover:bg-gray-50"
-                      onClick={() => {
-                        setNotifications((prev) =>
-                          prev.map((n) =>
-                            n.id === notification.id ? { ...n, read: true } : n
+                      onClick={async () => {
+                        // Mark as read in the API
+                        try {
+                          await fetch(`/api/notifications/${notification.id}`, {
+                            method: "PATCH",
+                            headers: {
+                              "Content-Type": "application/json",
+                            },
+                            body: JSON.stringify({ read: true }),
+                          })
+                          // Update local state
+                          setNotifications((prev) =>
+                            prev.map((n) =>
+                              n.id === notification.id ? { ...n, read: true } : n
+                            )
                           )
-                        )
+                        } catch (error) {
+                          console.error("Error marking notification as read:", error)
+                        }
                       }}
                     >
                       <div
@@ -249,7 +453,7 @@ const Dashboard = () => {
                         {notification.message}
                       </div>
                       <div className="text-xs text-gray-500 mt-1">
-                        {notification.time}
+                        {new Date(notification.createdAt).toLocaleString()}
                       </div>
                     </DropdownMenuItem>
                   ))
@@ -259,10 +463,18 @@ const Dashboard = () => {
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       className="text-center justify-center"
-                      onClick={() => {
-                        setNotifications((prev) =>
-                          prev.map((n) => ({ ...n, read: true }))
-                        )
+                      onClick={async () => {
+                        try {
+                          await fetch("/api/notifications/mark-all-read", {
+                            method: "POST",
+                          })
+                          // Update local state
+                          setNotifications((prev) =>
+                            prev.map((n) => ({ ...n, read: true }))
+                          )
+                        } catch (error) {
+                          console.error("Error marking all as read:", error)
+                        }
                       }}
                     >
                       Mark all as read
@@ -311,7 +523,7 @@ const Dashboard = () => {
               <DialogHeader>
                 <DialogTitle>Add New Assignment</DialogTitle>
               </DialogHeader>
-              <AssignmentForm onSubmit={addAssignment} />
+              <AssignmentForm onSubmit={addAssignment} isLoading={isSubmitting} />
             </DialogContent>
           </Dialog>
         </div>
@@ -359,7 +571,12 @@ const Dashboard = () => {
         </div>
 
         {/* Assignments Grid */}
-        {filteredAndSortedAssignments.length === 0 ? (
+        {isLoading ? (
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-500">Loading assignments...</p>
+          </div>
+        ) : filteredAndSortedAssignments.length === 0 ? (
           <div className="text-center py-12">
             <GraduationCap className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-600 mb-2">
