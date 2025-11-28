@@ -14,27 +14,33 @@ datasource db {
 }
 
 model User {
-  id            Int            @id @default(autoincrement())
-  email         String         @unique
-  name          String?
-  clerkId       String         @unique
-  assignments   Assignment[]
-  notifications Notification[]
+  id                  Int            @id @default(autoincrement())
+  email               String         @unique
+  name                String?
+  clerkId             String         @unique
+  googleAccessToken   String?
+  googleRefreshToken  String?
+  googleCalendarId    String?
+  calendarSyncEnabled Boolean        @default(false)
+  assignments         Assignment[]
+  notifications       Notification[]
 }
 
 model Assignment {
-  id            String         @id @default(cuid())
-  title         String
-  description   String         @default("")
-  subject       String         @default("")
-  dueDate       DateTime
-  status        String         @default("not-started")
-  priority      String         @default("medium")
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  userId        Int
-  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  notifications Notification[]
+  id              String         @id @default(cuid())
+  title           String
+  description     String         @default("")
+  subject         String         @default("")
+  dueDate         DateTime
+  status          String         @default("not-started")
+  priority        String         @default("medium")
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  googleEventId   String?
+  syncWithCalendar Boolean       @default(true)
+  userId          Int
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notifications   Notification[]
 
   @@index([userId])
   @@index([dueDate])

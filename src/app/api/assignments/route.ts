@@ -1,6 +1,7 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import prisma from "@/lib/prisma";
 import { generateNotificationsForAssignment } from "@/lib/notifications";
+import { createCalendarEvent, assignmentToCalendarEvent } from "@/lib/google-calendar";
 import { NextRequest, NextResponse } from "next/server";
 
 // GET /api/assignments - Fetch all assignments for the current user
@@ -94,6 +95,30 @@ export async function POST(request: NextRequest) {
 
     // Generate notification for the new assignment if it's due soon
     await generateNotificationsForAssignment(assignment.id, user.id);
+
+    // Sync to Google Calendar if enabled
+    try {
+      const userWithCalendar = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: {
+          calendarSyncEnabled: true,
+          googleAccessToken: true,
+        },
+      });
+
+      if (userWithCalendar?.calendarSyncEnabled && userWithCalendar.googleAccessToken) {
+        const calendarEvent = assignmentToCalendarEvent(assignment);
+        const eventId = await createCalendarEvent(user.id, calendarEvent);
+        
+        await prisma.assignment.update({
+          where: { id: assignment.id },
+          data: { googleEventId: eventId },
+        });
+      }
+    } catch (calendarError) {
+      console.error('Failed to sync to calendar:', calendarError);
+      // Don't fail the assignment creation if calendar sync fails
+    }
 
     return NextResponse.json(assignment, { status: 201 });
   } catch (error) {

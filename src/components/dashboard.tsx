@@ -22,7 +22,7 @@ import {
 import { useToast } from "@/hooks/use-toast"
 import type { Assignment, AssignmentFormData } from "@/types/assignment"
 import type { Notification } from "@/types/notification"
-import { Bell, Filter, GraduationCap, Plus, Search } from "lucide-react"
+import { Bell, Calendar, Filter, GraduationCap, Plus, Search } from "lucide-react"
 import { useEffect, useState } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
 import {
@@ -33,6 +33,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu"
+import { CalendarSettings } from "./calendar-settings"
 
 const Dashboard = () => {
   const [assignments, setAssignments] = useState<Assignment[]>([])
@@ -484,29 +485,17 @@ const Dashboard = () => {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* User Avatar */}
+            {/* Calendar Settings */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="rounded-full">
-                  <Avatar className="h-12 w-12">
-                    <AvatarImage src="/placeholder-user.jpg" alt="Student" />
-                    <AvatarFallback>ST</AvatarFallback>
-                  </Avatar>
+                <Button variant="ghost" size="icon">
+                  <Calendar className="h-8 w-8" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>My Account</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className="flex flex-col items-start p-3">
-                  <div className="font-medium">John Doe</div>
-                  <div className="text-sm text-gray-500">
-                    john.doe@email.com
-                  </div>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>Log out</DropdownMenuItem>
+              <DropdownMenuContent align="end" className="w-[550px]">
+                <CalendarSettings />
               </DropdownMenuContent>
-            </DropdownMenu>
+            </DropdownMenu>            
           </div>
         </div>
 
@@ -531,10 +520,10 @@ const Dashboard = () => {
         {/* Stats Overview */}
         <AssignmentStats assignments={assignments} />
 
-        {/* Filters and Search */}
-        <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-white p-4 rounded-lg shadow-sm mb-6">
-          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-            <div className="relative">
+            {/* Filters and Search */}
+            <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-white p-4 rounded-lg shadow-sm">
+              <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <Input
                 placeholder="Search assignments..."

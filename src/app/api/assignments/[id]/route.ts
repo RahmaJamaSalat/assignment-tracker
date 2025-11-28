@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import prisma from "@/lib/prisma";
 import { generateNotificationsForAssignment } from "@/lib/notifications";
+import { updateCalendarEvent, deleteCalendarEvent, assignmentToCalendarEvent } from "@/lib/google-calendar";
 import { NextRequest, NextResponse } from "next/server";
 
 // PATCH /api/assignments/[id] - Update an assignment
@@ -59,6 +60,27 @@ export async function PATCH(
     // Update notification for the assignment
     await generateNotificationsForAssignment(updatedAssignment.id, user.id);
 
+    // Update Google Calendar event if synced
+    try {
+      if (updatedAssignment.googleEventId && updatedAssignment.syncWithCalendar) {
+        const userWithCalendar = await prisma.user.findUnique({
+          where: { id: user.id },
+          select: {
+            calendarSyncEnabled: true,
+            googleAccessToken: true,
+          },
+        });
+
+        if (userWithCalendar?.calendarSyncEnabled && userWithCalendar.googleAccessToken) {
+          const calendarEvent = assignmentToCalendarEvent(updatedAssignment);
+          await updateCalendarEvent(user.id, updatedAssignment.googleEventId, calendarEvent);
+        }
+      }
+    } catch (calendarError) {
+      console.error('Failed to update calendar event:', calendarError);
+      // Don't fail the assignment update if calendar sync fails
+    }
+
     return NextResponse.json(updatedAssignment);
   } catch (error) {
     console.error("Error updating assignment:", error);
@@ -106,6 +128,26 @@ export async function DELETE(
 
     if (existingAssignment.userId !== user.id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    // Delete Google Calendar event if synced
+    try {
+      if (existingAssignment.googleEventId) {
+        const userWithCalendar = await prisma.user.findUnique({
+          where: { id: user.id },
+          select: {
+            calendarSyncEnabled: true,
+            googleAccessToken: true,
+          },
+        });
+
+        if (userWithCalendar?.calendarSyncEnabled && userWithCalendar.googleAccessToken) {
+          await deleteCalendarEvent(user.id, existingAssignment.googleEventId);
+        }
+      }
+    } catch (calendarError) {
+      console.error('Failed to delete calendar event:', calendarError);
+      // Continue with assignment deletion even if calendar deletion fails
     }
 
     // Delete assignment
