@@ -3,19 +3,22 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import type { Assignment } from "@/types/assignment"
-import { BookOpen, Calendar, ChevronRight, Clock, Flag } from "lucide-react"
+import { BookOpen, Calendar, ChevronRight, Clock, Flag, Trash2 } from "lucide-react"
 import { useState } from "react"
 
 interface AssignmentCardProps {
   assignment: Assignment
   onStatusChange: (id: string, status: Assignment["status"]) => Promise<void>
+  onDelete: (id: string) => Promise<void>
 }
 
 const AssignmentCard = ({
   assignment,
   onStatusChange,
+  onDelete,
 }: AssignmentCardProps) => {
   const [isUpdating, setIsUpdating] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   const { id, title, description, subject, dueDate, status, priority } =
     assignment
 
@@ -99,6 +102,15 @@ const AssignmentCard = ({
     }
   }
 
+  const handleDelete = async () => {
+    setIsDeleting(true)
+    try {
+      await onDelete(id)
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
   return (
     <Card
       className={`w-full transition-all duration-200 hover:shadow-lg ${
@@ -153,18 +165,33 @@ const AssignmentCard = ({
           </div>
         </div>
 
-        <Button
-          onClick={handleStatusChange}
-          className="w-full"
-          variant={status === "completed" ? "outline" : "default"}
-          disabled={isUpdating}
-        >
-          {isUpdating && (
-            <div className="w-4 h-4 mr-2 border-2 border-current border-t-transparent rounded-full animate-spin" />
-          )}
-          {getNextStatusLabel()}
-          {!isUpdating && <ChevronRight className="w-4 h-4 ml-2" />}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={handleStatusChange}
+            className="flex-1"
+            variant={status === "completed" ? "outline" : "default"}
+            disabled={isUpdating || isDeleting}
+          >
+            {isUpdating && (
+              <div className="w-4 h-4 mr-2 border-2 border-current border-t-transparent rounded-full animate-spin" />
+            )}
+            {getNextStatusLabel()}
+            {!isUpdating && <ChevronRight className="w-4 h-4 ml-2" />}
+          </Button>
+          <Button
+            onClick={handleDelete}
+            variant="destructive"
+            size="icon"
+            disabled={isUpdating || isDeleting}
+            title="Delete assignment"
+          >
+            {isDeleting ? (
+              <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <Trash2 className="w-4 h-4" />
+            )}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   )

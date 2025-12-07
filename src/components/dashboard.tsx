@@ -3,6 +3,7 @@
 import AssignmentCard from "@/components/assignment-card"
 import AssignmentForm from "@/components/assignment-form"
 import AssignmentStats from "@/components/assignment-stats"
+import { AIChat, ChatButton } from "@/components/ai-chat"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -24,7 +25,6 @@ import type { Assignment, AssignmentFormData } from "@/types/assignment"
 import type { Notification } from "@/types/notification"
 import { Bell, Calendar, Filter, GraduationCap, Plus, Search } from "lucide-react"
 import { useEffect, useState } from "react"
-import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,54 +44,55 @@ const Dashboard = () => {
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [notifications, setNotifications] = useState<Notification[]>([])
+  const [isChatOpen, setIsChatOpen] = useState(false)
   const { toast } = useToast()
 
   // Fetch assignments from API on component mount
   useEffect(() => {
-    const fetchAssignments = async () => {
-      try {
-        setIsLoading(true)
-        const response = await fetch("/api/assignments")
-        if (response.ok) {
-          const data: Array<{
-            id: string;
-            title: string;
-            description: string;
-            subject: string;
-            dueDate: string;
-            status: "not-started" | "in-progress" | "completed";
-            priority: "low" | "medium" | "high";
-            createdAt: string;
-            userId: number;
-          }> = await response.json()
-          setAssignments(
-            data.map((a) => ({
-              ...a,
-              dueDate: new Date(a.dueDate),
-              createdAt: new Date(a.createdAt),
-            }))
-          )
-        } else {
-          toast({
-            title: "Error",
-            description: "Failed to fetch assignments",
-            variant: "destructive",
-          })
-        }
-      } catch (error) {
-        console.error("Error fetching assignments:", error)
+    fetchAssignments()
+  }, [toast])
+
+  const fetchAssignments = async () => {
+    try {
+      setIsLoading(true)
+      const response = await fetch("/api/assignments")
+      if (response.ok) {
+        const data: Array<{
+          id: string;
+          title: string;
+          description: string;
+          subject: string;
+          dueDate: string;
+          status: "not-started" | "in-progress" | "completed";
+          priority: "low" | "medium" | "high";
+          createdAt: string;
+          userId: number;
+        }> = await response.json()
+        setAssignments(
+          data.map((a) => ({
+            ...a,
+            dueDate: new Date(a.dueDate),
+            createdAt: new Date(a.createdAt),
+          }))
+        )
+      } else {
         toast({
           title: "Error",
           description: "Failed to fetch assignments",
           variant: "destructive",
         })
-      } finally {
-        setIsLoading(false)
       }
+    } catch (error) {
+      console.error("Error fetching assignments:", error)
+      toast({
+        title: "Error",
+        description: "Failed to fetch assignments",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
     }
-
-    fetchAssignments()
-  }, [toast])
+  }
 
   // Fetch notifications from API
   useEffect(() => {
@@ -218,6 +219,12 @@ const Dashboard = () => {
     }
   }
 
+  // Handler for when AI makes changes to data
+  const handleDataRefresh = async () => {
+    await fetchAssignments()
+    await refetchNotifications()
+  }
+
   const addAssignment = async (formData: AssignmentFormData) => {
     setIsSubmitting(true)
     try {
@@ -337,6 +344,52 @@ const Dashboard = () => {
       toast({
         title: "Error",
         description: "Failed to update assignment",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const deleteAssignment = async (id: string) => {
+    const assignment = assignments.find((a) => a.id === id)
+    
+    if (!assignment) return
+
+    // Optimistic update - remove from UI immediately
+    setAssignments((prev) => prev.filter((a) => a.id !== id))
+
+    try {
+      const response = await fetch(`/api/assignments/${id}`, {
+        method: "DELETE",
+      })
+
+      if (response.ok) {
+        // Refetch notifications after deleting assignment
+        await refetchNotifications()
+
+        toast({
+          title: "Assignment Deleted",
+          description: `"${assignment.title}" has been deleted.`,
+        })
+      } else {
+        // Revert optimistic update on error
+        setAssignments((prev) => [...prev, assignment].sort((a, b) => {
+          return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
+        }))
+        toast({
+          title: "Error",
+          description: "Failed to delete assignment",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error deleting assignment:", error)
+      // Revert optimistic update on error
+      setAssignments((prev) => [...prev, assignment].sort((a, b) => {
+        return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
+      }))
+      toast({
+        title: "Error",
+        description: "Failed to delete assignment",
         variant: "destructive",
       })
     }
@@ -592,11 +645,27 @@ const Dashboard = () => {
                 key={assignment.id}
                 assignment={assignment}
                 onStatusChange={updateAssignmentStatus}
+                onDelete={deleteAssignment}
               />
             ))}
           </div>
         )}
       </div>
+
+      {/* AI Chat Interface */}
+      <AIChat 
+        isOpen={isChatOpen} 
+        onClose={() => setIsChatOpen(false)}
+        onDataChange={handleDataRefresh}
+      />
+      
+      {/* Floating Chat Button */}
+      {!isChatOpen && (
+        <ChatButton
+          onClick={() => setIsChatOpen(true)}
+          hasUnread={false}
+        />
+      )}
     </div>
   )
 }

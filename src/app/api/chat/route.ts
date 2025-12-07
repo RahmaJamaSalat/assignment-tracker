@@ -1,8 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
-import { convertToCoreMessages, Message, streamText } from "ai";
+import { streamText, convertToCoreMessages } from "ai";
 import { z } from "zod";
 
-import { geminiProModel } from "@/ai";
 import {
   createAssignment,
   getAssignments,
@@ -11,9 +10,10 @@ import {
   getStudyAdvice,
   answerAssignmentQuestion,
 } from "../../../ai/actions";
+import { geminiProModel } from "@/ai";
 
 export async function POST(request: Request) {
-  const { messages }: { messages: Array<Message> } = await request.json();
+  const { messages } = await request.json();
 
   const { userId } = await auth();
 
@@ -21,33 +21,42 @@ export async function POST(request: Request) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const coreMessages = convertToCoreMessages(messages).filter(
-    (message) => message.content.length > 0
-  );
+  const coreMessages = convertToCoreMessages(messages);
+
+  const currentDateTime = new Date().toISOString();
+  const currentDateFormatted = new Date().toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
 
   const result = await streamText({
     model: geminiProModel,
-    system: `You are a helpful assignment tracking and study assistant. Your role is to:
-- Help students manage their assignments and track deadlines
-- Answer questions about their current assignments and schedules
-- Provide study tips and time management advice
-- Create, update, and organize assignments
-- Provide insights about workload and upcoming deadlines
+    system: `Current date and time: ${currentDateTime} (${currentDateFormatted})
+            You are a helpful assignment tracking and study assistant. Your role is to:
+            - Help students manage their assignments and track deadlines
+            - Answer questions about their current assignments and schedules
+            - Provide study tips and time management advice
+            - Create, update, and organize assignments
+            - Provide insights about workload and upcoming deadlines
 
-You have access to tools to:
-1. View assignments with various filters
-2. Get summaries and statistics about assignments
-3. Create new assignments with AI-enhanced details
-4. Update existing assignments
-5. Provide personalized study advice
-6. Answer specific questions about assignments
-
-Be friendly, encouraging, and practical. When students ask about their schedule or assignments, use the appropriate tools to fetch real data. When giving advice, be specific and actionable.`,
+            You have access to tools to:
+            1. View assignments with various filters
+            2. Get summaries and statistics about assignments
+            3. Create new assignments with AI-enhanced details
+            4. Update existing assignments
+            5. Provide personalized study advice
+            6. Answer specific questions about assignments
+            
+            IMPORTANT: After calling any tool, you MUST provide a detailed text response explaining the results to the user. Never just call a tool without following up with an explanation in natural language.
+            
+            Be friendly, encouraging, and practical. When students ask about their schedule or assignments, use the appropriate tools to fetch real data, then explain what you found. When giving advice, be specific and actionable.`,
     messages: coreMessages,
     tools: {
       getAssignments: {
         description:
-          "Retrieve assignments for the user. Use filters to narrow down results (e.g., by status, priority, subject, or time range). Use this when the user asks about their assignments, schedule, or what's due.",
+          "Retrieve all assignments for the user. Returns the complete list of assignments. Supports optional filtering by status, priority, subject, or due date range.",
         parameters: z.object({
           status: z
             .enum(["not-started", "in-progress", "completed"])
@@ -60,14 +69,21 @@ Be friendly, encouraging, and practical. When students ask about their schedule 
           subject: z
             .string()
             .optional()
-            .describe("Filter by subject or course name"),
+            .describe(
+              "Filter by subject/course name (case-insensitive partial match)"
+            ),
           dueDateRange: z
             .enum(["today", "this-week", "this-month", "overdue"])
             .optional()
-            .describe("Filter by when assignments are due"),
+            .describe("Filter by due date range"),
         }),
         execute: async (params) => {
-          return await getAssignments(params);
+          return await getAssignments({
+            status: params.status,
+            priority: params.priority,
+            subject: params.subject,
+            dueDateRange: params.dueDateRange,
+          });
         },
       },
       getAssignmentSummary: {
@@ -152,7 +168,16 @@ Be friendly, encouraging, and practical. When students ask about their schedule 
             .string()
             .describe("The user's question about their assignments"),
           assignments: z
-            .array(z.any())
+            .array(
+              z.object({
+                id: z.string(),
+                title: z.string(),
+                subject: z.string(),
+                dueDate: z.string(),
+                status: z.enum(["not-started", "in-progress", "completed"]),
+                priority: z.enum(["low", "medium", "high"]),
+              })
+            )
             .describe("Array of relevant assignments to reference"),
         }),
         execute: async (params) => {
@@ -160,6 +185,7 @@ Be friendly, encouraging, and practical. When students ask about their schedule 
         },
       },
     },
+    maxSteps: 10,
     experimental_telemetry: {
       isEnabled: true,
       functionId: "stream-text",

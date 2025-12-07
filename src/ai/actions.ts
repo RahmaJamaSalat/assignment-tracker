@@ -1,9 +1,10 @@
 import { auth } from "@clerk/nextjs/server";
 import { generateObject, generateText } from "ai";
-import { geminiFlashModel } from ".";
-import z from "zod";
+import { z } from "zod";
+import { Prisma, Assignment } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { generateNotificationsForAssignment } from "@/lib/notifications";
+import { geminiFlashModel } from ".";
 
 /**
  * Get all assignments for the current user with optional filtering
@@ -34,7 +35,7 @@ export async function getAssignments({
       throw new Error("User not found");
     }
 
-    const where: any = { userId: user.id };
+    const where: Prisma.AssignmentWhereInput = { userId: user.id };
 
     if (status) {
       where.status = status;
@@ -351,7 +352,7 @@ export async function updateAssignment({
     }
 
     // Build update data
-    const updateData: any = {};
+    const updateData: Prisma.AssignmentUpdateInput = {};
     if (title !== undefined) updateData.title = title;
     if (description !== undefined) updateData.description = description;
     if (subject !== undefined) updateData.subject = subject;
@@ -429,7 +430,7 @@ export async function answerAssignmentQuestion({
   assignments,
 }: {
   question: string;
-  assignments: any[];
+  assignments: Assignment[];
 }) {
   try {
     const assignmentContext = assignments

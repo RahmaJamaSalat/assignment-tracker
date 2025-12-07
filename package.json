@@ -28,13 +28,15 @@
     "clsx": "^2.1.1",
     "googleapis": "^166.0.0",
     "lucide-react": "^0.511.0",
-    "next": "15.1.8",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
+    "next": "15.0.0-canary.152",
+    "react": "19.0.0-rc-7771d3a7-20240827",
+    "react-dom": "19.0.0-rc-7771d3a7-20240827",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "svix": "^1.81.0",
     "tailwind-merge": "^3.3.0",
     "tailwindcss-animate": "^1.0.7",
-    "zod": "^4.1.13"
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

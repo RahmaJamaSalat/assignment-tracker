@@ -1,8 +1,7 @@
-import { google } from 'googleapis';
-import { OAuth2Client } from 'google-auth-library';
-import prisma from './prisma';
+import { google } from "googleapis";
+import prisma from "./prisma";
 
-const SCOPES = ['https://www.googleapis.com/auth/calendar'];
+const SCOPES = ["https://www.googleapis.com/auth/calendar"];
 
 export function getOAuth2Client() {
   return new google.auth.OAuth2(
@@ -15,9 +14,9 @@ export function getOAuth2Client() {
 export function getAuthUrl() {
   const oauth2Client = getOAuth2Client();
   return oauth2Client.generateAuthUrl({
-    access_type: 'offline',
+    access_type: "offline",
     scope: SCOPES,
-    prompt: 'consent',
+    prompt: "consent",
   });
 }
 
@@ -38,11 +37,11 @@ export async function getCalendarClient(userId: number) {
   });
 
   if (!user?.googleAccessToken || !user?.googleRefreshToken) {
-    throw new Error('User not authenticated with Google Calendar');
+    throw new Error("User not authenticated with Google Calendar");
   }
 
   if (!user.calendarSyncEnabled) {
-    throw new Error('Calendar sync is disabled for this user');
+    throw new Error("Calendar sync is disabled for this user");
   }
 
   const oauth2Client = getOAuth2Client();
@@ -52,7 +51,7 @@ export async function getCalendarClient(userId: number) {
   });
 
   // Handle token refresh automatically
-  oauth2Client.on('tokens', async (tokens) => {
+  oauth2Client.on("tokens", async (tokens) => {
     if (tokens.access_token) {
       await prisma.user.update({
         where: { id: userId },
@@ -61,7 +60,7 @@ export async function getCalendarClient(userId: number) {
     }
   });
 
-  return google.calendar({ version: 'v3', auth: oauth2Client });
+  return google.calendar({ version: "v3", auth: oauth2Client });
 }
 
 export interface CalendarEvent {
@@ -78,7 +77,7 @@ export interface CalendarEvent {
   reminders?: {
     useDefault: boolean;
     overrides?: Array<{
-      method: 'email' | 'popup';
+      method: "email" | "popup";
       minutes: number;
     }>;
   };
@@ -89,13 +88,13 @@ export async function createCalendarEvent(
   event: CalendarEvent
 ): Promise<string> {
   const calendar = await getCalendarClient(userId);
-  
+
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { googleCalendarId: true },
   });
 
-  const calendarId = user?.googleCalendarId || 'primary';
+  const calendarId = user?.googleCalendarId || "primary";
 
   const response = await calendar.events.insert({
     calendarId,
@@ -111,13 +110,13 @@ export async function updateCalendarEvent(
   event: CalendarEvent
 ): Promise<void> {
   const calendar = await getCalendarClient(userId);
-  
+
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { googleCalendarId: true },
   });
 
-  const calendarId = user?.googleCalendarId || 'primary';
+  const calendarId = user?.googleCalendarId || "primary";
 
   await calendar.events.update({
     calendarId,
@@ -131,13 +130,13 @@ export async function deleteCalendarEvent(
   eventId: string
 ): Promise<void> {
   const calendar = await getCalendarClient(userId);
-  
+
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { googleCalendarId: true },
   });
 
-  const calendarId = user?.googleCalendarId || 'primary';
+  const calendarId = user?.googleCalendarId || "primary";
 
   await calendar.events.delete({
     calendarId,
@@ -156,28 +155,29 @@ export function assignmentToCalendarEvent(assignment: {
   const endDate = new Date(assignment.dueDate);
   const startDate = new Date(endDate.getTime() - 60 * 60 * 1000); // 1 hour before
 
-  const priorityEmoji = {
-    high: '🔴',
-    medium: '🟡',
-    low: '🟢',
-  }[assignment.priority] || '🟡';
+  const priorityEmoji =
+    {
+      high: "🔴",
+      medium: "🟡",
+      low: "🟢",
+    }[assignment.priority] || "🟡";
 
   return {
     summary: `${priorityEmoji} ${assignment.title}`,
     description: `Subject: ${assignment.subject}\n\n${assignment.description}\n\n📚 Assignment from Assignment Tracker`,
     start: {
       dateTime: startDate.toISOString(),
-      timeZone: 'UTC',
+      timeZone: "UTC",
     },
     end: {
       dateTime: endDate.toISOString(),
-      timeZone: 'UTC',
+      timeZone: "UTC",
     },
     reminders: {
       useDefault: false,
       overrides: [
-        { method: 'email', minutes: 24 * 60 }, // 1 day before
-        { method: 'popup', minutes: 60 }, // 1 hour before
+        { method: "email", minutes: 24 * 60 }, // 1 day before
+        { method: "popup", minutes: 60 }, // 1 hour before
       ],
     },
   };
