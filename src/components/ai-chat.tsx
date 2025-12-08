@@ -29,13 +29,8 @@ export function AIChat({ isOpen, onClose, onDataChange }: AIChatProps) {
         },
       ],
       maxSteps: 15,
-      onFinish: (message) => {
-        // const hasAssignmentChange = message.toolInvocations?.some(
-        //   (tool) => tool.toolName === "createAssignment" || tool.toolName === "updateAssignment"
-        // )
-        if (onDataChange) {
-          onDataChange()
-        }
+      onFinish: () => {
+        refreshData()
       },
     })
 
@@ -55,6 +50,15 @@ export function AIChat({ isOpen, onClose, onDataChange }: AIChatProps) {
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }
+
+  const refreshData = () => {
+    const hasAssignmentChange = messages.flatMap(msg => msg.toolInvocations ?? []).some(
+          (tool) => tool.toolName === "createAssignment" || tool.toolName === "updateAssignment"
+        )
+    if (hasAssignmentChange && onDataChange) {
+      onDataChange()
+    }
   }
 
   useEffect(() => {
