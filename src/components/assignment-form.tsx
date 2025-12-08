@@ -111,7 +111,7 @@ const AssignmentForm = ({ onSubmit, isLoading = false }: AssignmentFormProps) =>
                 value={formData.priority}
                 onValueChange={(value) => handleChange("priority", value)}
               >
-                <SelectTrigger>
+                <SelectTrigger id="priority">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

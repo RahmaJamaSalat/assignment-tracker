@@ -34,8 +34,10 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu"
 import { CalendarSettings } from "./calendar-settings"
+import { useUser } from "@clerk/nextjs"
 
 const Dashboard = () => {
+  const { isSignedIn } = useUser()
   const [assignments, setAssignments] = useState<Assignment[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [filterStatus, setFilterStatus] = useState<string>("all")
@@ -439,23 +441,21 @@ const Dashboard = () => {
           </div>
 
           <div className="flex items-center gap-4">
-            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-              <DialogTrigger asChild>
-                <Button size="lg" className="hidden sm:flex">
-                  <Plus className="w-5 h-5 mr-2" />
-                  Add Assignment
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>Add New Assignment</DialogTitle>
-                </DialogHeader>
-                <AssignmentForm onSubmit={addAssignment} isLoading={isSubmitting} />
-              </DialogContent>
-            </Dialog>
+            {/* Desktop Add Button */}
+            {isSignedIn && (
+              <Button 
+                size="lg" 
+                className="hidden sm:flex"
+                onClick={() => setIsAddDialogOpen(true)}
+              >
+                <Plus className="w-5 h-5 mr-2" />
+                Add Assignment
+              </Button>
+            )}
 
             {/* Notifications */}
-            <DropdownMenu>
+            {isSignedIn && (
+              <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="relative">
                   <Bell className="h-8 w-8" />
@@ -537,43 +537,55 @@ const Dashboard = () => {
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
+            )}
 
             {/* Calendar Settings */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <Calendar className="h-8 w-8" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[550px]">
-                <CalendarSettings />
-              </DropdownMenuContent>
-            </DropdownMenu>            
+            {isSignedIn && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <Calendar className="h-8 w-8" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-[550px]">
+                  <CalendarSettings />
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}            
           </div>
         </div>
 
         {/* Mobile Add Button */}
-        <div className="sm:hidden mb-6">
+        {isSignedIn && (
+          <div className="sm:hidden mb-6">
+            <Button 
+              className="w-full" 
+              size="lg"
+              onClick={() => setIsAddDialogOpen(true)}
+          >
+            <Plus className="w-5 h-5 mr-2" />
+            Add Assignment
+          </Button>
+          </div>
+        )}
+
+        {/* Single Dialog for Both Desktop and Mobile */}
+        {isSignedIn && (
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="w-full" size="lg">
-                <Plus className="w-5 h-5 mr-2" />
-                Add Assignment
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Add New Assignment</DialogTitle>
-              </DialogHeader>
-              <AssignmentForm onSubmit={addAssignment} isLoading={isSubmitting} />
-            </DialogContent>
-          </Dialog>
-        </div>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Add New Assignment</DialogTitle>
+            </DialogHeader>
+            <AssignmentForm onSubmit={addAssignment} isLoading={isSubmitting} />
+          </DialogContent>
+        </Dialog>
+        )}
 
         {/* Stats Overview */}
-        <AssignmentStats assignments={assignments} />
+        {isSignedIn && <AssignmentStats assignments={assignments} />}
 
             {/* Filters and Search */}
+            {isSignedIn && (
             <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-white p-4 rounded-lg shadow-sm">
               <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
                 <div className="relative">
@@ -611,8 +623,11 @@ const Dashboard = () => {
             </Select>
           </div>
         </div>
+        )}
 
         {/* Assignments Grid */}
+        {isSignedIn && (
+          <>
         {isLoading ? (
           <div className="text-center py-12">
             <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
@@ -650,17 +665,21 @@ const Dashboard = () => {
             ))}
           </div>
         )}
+        </>
+        )}
       </div>
 
       {/* AI Chat Interface */}
-      <AIChat 
-        isOpen={isChatOpen} 
-        onClose={() => setIsChatOpen(false)}
-        onDataChange={handleDataRefresh}
-      />
+      {isSignedIn && (
+        <AIChat 
+          isOpen={isChatOpen} 
+          onClose={() => setIsChatOpen(false)}
+          onDataChange={handleDataRefresh}
+        />
+      )}
       
       {/* Floating Chat Button */}
-      {!isChatOpen && (
+      {isSignedIn && !isChatOpen && (
         <ChatButton
           onClick={() => setIsChatOpen(true)}
           hasUnread={false}
