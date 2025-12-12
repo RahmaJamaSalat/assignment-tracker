@@ -33,7 +33,7 @@
     "clsx": "^2.1.1",
     "googleapis": "^166.0.0",
     "lucide-react": "^0.511.0",
-    "next": "15.0.0-canary.152",
+    "next": "15.6.0-canary.60",
     "react": "19.0.0-rc-7771d3a7-20240827",
     "react-dom": "19.0.0-rc-7771d3a7-20240827",
     "react-markdown": "^10.1.0",
